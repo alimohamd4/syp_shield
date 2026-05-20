@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+import torch
 
 # ===========================
 # المسارات الأساسية
@@ -139,3 +140,7 @@ SPECTACULAR_SETTINGS = {
     'VERSION':              '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+ML_MODEL_PATH    = BASE_DIR / 'ml_engine' / 'model' / 'syp_shield_final_model.pth'
+ML_REFERENCES_DIR = BASE_DIR / 'ml_engine' / 'references'
+ML_DEVICE        = 'cuda' if torch.cuda.is_available() else 'cpu'

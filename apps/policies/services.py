@@ -1,62 +1,58 @@
 from django.utils import timezone
-from .models import TierPolicy, ScanLimit
+from .models import RolePolicy, ScanLimit
 
 
 class PolicyService:
 
     @staticmethod
-    def get_policy(tier):
+    def get_policy(role):
         try:
-            return TierPolicy.objects.get(tier=tier)
-        except TierPolicy.DoesNotExist:
+            return RolePolicy.objects.get(role=role)
+        except RolePolicy.DoesNotExist:
             return None
 
     @staticmethod
-    def can_scan(user):
-        policy = PolicyService.get_policy(user.tier)
-
+    def can_scan(user=None, device_id=None):
+        if user and user.is_authenticated and user.role_level >= 2:
+            return True, "OK"
+        role = user.role if (user and user.is_authenticated) else "guest"
+        policy = PolicyService.get_policy(role)
         if not policy:
-            return False, "السياسة غير موجودة"
-
-        if user.tier == 'obsidian':
-            return True, "مسموح"
-
+            return False, "NO_POLICY"
         today = timezone.now().date()
-        scan_limit, _ = ScanLimit.objects.get_or_create(
-            user=user,
-            date=today
-        )
-
-        if scan_limit.scan_count >= policy.daily_scan_limit:
-            return False, f"وصلت للحد اليومي ({policy.daily_scan_limit} scans)"
-
-        return True, "مسموح"
+        if user and user.is_authenticated:
+            limit, _ = ScanLimit.objects.get_or_create(user=user, date=today)
+        else:
+            if not device_id:
+                return False, "NO_DEVICE"
+            limit, _ = ScanLimit.objects.get_or_create(device_id=device_id, date=today)
+        if limit.scan_count >= policy.daily_scan_limit:
+            return False, "LIMIT_REACHED"
+        return True, "OK"
 
     @staticmethod
-    def increment_scan_count(user):
-        if user.tier == 'obsidian':
-            return
-
+    def increment_scan(user=None, device_id=None):
         today = timezone.now().date()
-        scan_limit, _ = ScanLimit.objects.get_or_create(
-            user=user,
-            date=today
-        )
-        scan_limit.scan_count += 1
-        scan_limit.save()
+        if user and user.is_authenticated:
+            if user.role_level >= 2:
+                return
+            limit, _ = ScanLimit.objects.get_or_create(user=user, date=today)
+        else:
+            limit, _ = ScanLimit.objects.get_or_create(device_id=device_id, date=today)
+        limit.scan_count += 1
+        limit.save()
 
     @staticmethod
-    def get_remaining_scans(user):
-        if user.tier == 'obsidian':
+    def get_remaining_scans(user=None, device_id=None):
+        if user and user.is_authenticated and user.role_level >= 2:
             return 999
-
-        policy = PolicyService.get_policy(user.tier)
+        role = user.role if (user and user.is_authenticated) else "guest"
+        policy = PolicyService.get_policy(role)
         if not policy:
             return 0
-
         today = timezone.now().date()
-        scan_limit, _ = ScanLimit.objects.get_or_create(
-            user=user,
-            date=today
-        )
-        return max(0, policy.daily_scan_limit - scan_limit.scan_count)
+        if user and user.is_authenticated:
+            limit, _ = ScanLimit.objects.get_or_create(user=user, date=today)
+        else:
+            limit, _ = ScanLimit.objects.get_or_create(device_id=device_id, date=today)
+        return max(0, policy.daily_scan_limit - limit.scan_count)

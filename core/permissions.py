@@ -1,22 +1,29 @@
 from rest_framework.permissions import BasePermission
 
 
-class IsObsidianTier(BasePermission):
-    message = "هذه الميزة متاحة لمستخدمي Obsidian فقط"
+class IsGuest(BasePermission):
+    message = "هذه الميزة للزوار فقط"
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.tier == 'obsidian'
+        return not request.user.is_authenticated
 
 
-class IsGoldOrAbove(BasePermission):
-    message = "هذه الميزة متاحة لمستخدمي Gold و Obsidian فقط"
-
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.tier_level >= 2
-
-
-class IsStandardOrAbove(BasePermission):
+class IsAuthenticatedUser(BasePermission):
     message = "يجب تسجيل الدخول أولاً"
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.tier_level >= 1
+        return request.user.is_authenticated and request.user.role_level >= 1
+
+
+class IsExpert(BasePermission):
+    message = "هذه الميزة للخبراء فقط"
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role_level >= 2
+
+
+class IsAdminRole(BasePermission):
+    message = "هذه الميزة للمديرين فقط"
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'admin'
